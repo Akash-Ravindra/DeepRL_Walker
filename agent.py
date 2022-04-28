@@ -1,7 +1,7 @@
 import torch
 import random, numpy as np
 from pathlib import Path
-
+from tqdm.auto import tqdm
 from Qnetwork import Qnet
 from collections import deque
 
@@ -38,13 +38,14 @@ class bipedal_walker_agent:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.0002)
 
         self.loss_fn = torch.nn.SmoothL1Loss()
+        print("Agent initialized")
 
     def step(self, state):
         ## random check to see explore or exploit
         if np.random.rand() < self.exploration_rate:
-            return np.random.rand(self.action_dim)
+            action_values = np.random.rand(self.action_dim)
         else:
-            state = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            state = torch.FloatTensor(state).cuda().unsqueeze(0)
             with torch.no_grad():
                 action_values = self.net(state, model="online").flatten().cpu().data
 
@@ -53,7 +54,7 @@ class bipedal_walker_agent:
         self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
         # increment step
-        self.curr_step += 1
+        self.curr_step = self.curr_step + 1
         return action_values
 
         pass
@@ -165,7 +166,7 @@ class bipedal_walker_agent:
             ),
             save_path
         )
-        print(f"Agent saved to {save_path} at step {self.curr_step}")
+        tqdm.write(f"Agent saved to {save_path} at step {self.curr_step}")
 
     def load(self, load_path):
         if not load_path.exists():
@@ -175,6 +176,6 @@ class bipedal_walker_agent:
         exploration_rate = ckp.get("exploration_rate")
         state_dict = ckp.get("model")
 
-        print(f"Loading model at {load_path} with exploration rate {exploration_rate}")
+        tqdm.write(f"Loading model at {load_path} with exploration rate {exploration_rate}")
         self.net.load_state_dict(state_dict)
         self.exploration_rate = exploration_rate
